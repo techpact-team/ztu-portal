@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, User, KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth-schemas";
@@ -16,7 +16,6 @@ export function LoginForm({ portal }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formError, setFormError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const configured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -33,35 +32,24 @@ export function LoginForm({ portal }: LoginFormProps) {
 
   function onSubmit(values: LoginInput) {
     setFormError(null);
-    startTransition(async () => {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/auth/login";
 
-      const payload = (await response.json()) as {
-        error?: string;
-        redirectTo?: string;
-      };
-
-      if (!response.ok) {
-        setFormError(payload.error ?? "Sign in failed.");
-        return;
-      }
-
-      const next = searchParams.get("next");
-      const destination =
-        next && next.startsWith("/") && !next.startsWith("//")
-          ? next
-          : payload.redirectTo ?? "/";
-
-      // Authentication changes the response cookies. A full navigation makes
-      // Netlify load the protected route from the current deployment and sends
-      // the new session cookies on the very first dashboard request.
-      window.location.replace(destination);
+    Object.entries(values).forEach(([name, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
     });
+
+    document.body.appendChild(form);
+    form.submit();
   }
+
+  const pending = form.formState.isSubmitting;
+  const displayedError = formError ?? searchParams.get("error");
 
   return (
     <div className="mx-auto w-full max-w-[460px] bg-white rounded-lg border border-border p-8 shadow-sm flex flex-col items-center">
@@ -133,10 +121,10 @@ export function LoginForm({ portal }: LoginFormProps) {
         <input type="hidden" {...form.register("portal")} />
 
         {/* Status Alerts */}
-        {formError ? (
+        {displayedError ? (
           <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm font-medium text-danger border border-danger/25">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>{formError}</span>
+            <span>{displayedError}</span>
           </div>
         ) : null}
 
