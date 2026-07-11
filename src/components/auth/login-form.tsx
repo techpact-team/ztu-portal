@@ -51,8 +51,15 @@ export function LoginForm({ portal }: LoginFormProps) {
       }
 
       const next = searchParams.get("next");
-      router.replace(next && next.startsWith("/") ? next : payload.redirectTo ?? "/");
-      router.refresh();
+      const destination =
+        next && next.startsWith("/") && !next.startsWith("//")
+          ? next
+          : payload.redirectTo ?? "/";
+
+      // Authentication changes the response cookies. A full navigation makes
+      // Netlify load the protected route from the current deployment and sends
+      // the new session cookies on the very first dashboard request.
+      window.location.replace(destination);
     });
   }
 
