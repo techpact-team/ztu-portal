@@ -7,8 +7,21 @@ import { loginSchema } from "@/lib/validation/auth-schemas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function logLogin(action: string, email: string | null, ipAddress: string, userAgent: string | null, actorProfileId?: string) {
-  const admin = createSupabaseAdminClient();
-  await admin.from("audit_logs").insert({ actor_profile_id: actorProfileId ?? null, action, entity_type: "authentication", new_values: email ? { email } : null, ip_address: ipAddress, user_agent: userAgent });
+  try {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin.from("audit_logs").insert({ actor_profile_id: actorProfileId ?? null, action, entity_type: "authentication", new_values: email ? { email } : null, ip_address: ipAddress, user_agent: userAgent });
+
+    if (error) {
+      console.error("Unable to record authentication audit event:", error.message);
+    }
+  } catch (error) {
+    // Audit logging must never prevent a user from authenticating. This also
+    // keeps login available when the optional service-role key is not present.
+    console.error(
+      "Unable to initialize authentication audit logging:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
